@@ -353,8 +353,46 @@ static uint8_t patable_power_868[8] = {0x03,0x17,0x1D,0x26,0x50,0x86,0xCD,0xC0};
 static uint8_t patable_power_915[8] = {0x0B,0x1B,0x6D,0x67,0x50,0x85,0xC9,0xC1};
 //static uint8_t patable_power_2430[8] = {0x44,0x84,0x46,0x55,0xC6,0x6E,0x9A,0xFE};
 
+// === Two different functions for micr seconds delay ====
 
-// Micro second delay
+// ================================================================
+
+static portMUX_TYPE microsMux = portMUX_INITIALIZER_UNLOCKED;
+
+//------------------------------
+unsigned long IRAM_ATTR micros()
+{
+    static unsigned long lccount = 0;
+    static unsigned long overflow = 0;
+    unsigned long ccount;
+    portENTER_CRITICAL_ISR(&microsMux);
+    __asm__ __volatile__ ( "rsr     %0, ccount" : "=a" (ccount) );
+    if(ccount < lccount){
+        overflow += UINT32_MAX / CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ;
+    }
+    lccount = ccount;
+    portEXIT_CRITICAL_ISR(&microsMux);
+    return overflow + (ccount / CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ);
+}
+
+//-------------------------------------------
+void IRAM_ATTR delayMicroseconds(uint32_t us)
+{
+	portDISABLE_INTERRUPTS();
+    uint32_t m = micros();
+    if (us) {
+        uint32_t e = (m + us);
+        if (m > e) { //overflow
+            while (micros() > e) ;
+        }
+        while(micros() < e) ;
+    }
+	portENABLE_INTERRUPTS();
+}
+// ================================================================
+
+// ================================================================
+/*
 //--------------------------------------------------
 static void IRAM_ATTR delayMicroseconds(uint32_t us)
 {
@@ -362,6 +400,8 @@ static void IRAM_ATTR delayMicroseconds(uint32_t us)
 	ets_delay_us(us);
 	portENABLE_INTERRUPTS();
 }
+*/
+// ================================================================
 
 // Milli second delay
 //---------------------------------
