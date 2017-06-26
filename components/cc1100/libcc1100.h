@@ -12,21 +12,34 @@
 #define _LIBCC1100_H
 
 #include <stdint.h>
+#include "sdkconfig.h"
 
+/* Library version
+ * If NVS is used, version is saved to NVS
+ * When different version is found on boot,
+ * default CC1101 parameters are used and saved to NVS
+ */
+//==========================
+#define CC1100_VERSION	0x02
+//==========================
 
 // ==============================================
 // Set to 1 to use NVS to store CC1101 parameters
 // ==============================================
+#ifdef CONFIG_CC1101_USE_NVS
 #define USE_NVS	1
+#else
+#define USE_NVS	1
+#endif
 
 // ============================
 // ==== Default parameters ====
 // ============================
-#define DEFAULT_CC1100_MYADDRESS	0x03
-#define DEFAULT_CC1100_FREQUENCY	CC1100_FREQ_868MHZ
-#define DEFAULT_CC1100_MODE			0x02
-#define DEFAULT_CC1100_CHANNEL		0x01
-#define DEFAULT_CC1100_POWER		0
+#define DEFAULT_CC1100_MYADDRESS	CONFIG_CC1101_ADDRESS
+#define DEFAULT_CC1100_FREQUENCY	CONFIG_CC1101_FREQ
+#define DEFAULT_CC1100_MODE			CONFIG_CC1101_MODE
+#define DEFAULT_CC1100_CHANNEL		CONFIG_CC1101_CHANNEL
+#define DEFAULT_CC1100_POWER		CONFIG_CC1101_POWER_LEVEL
 
 // ==============================================================
 // ==== Define which SPI bus to use (VSPI_HOST or HSPI_HOST) ====
@@ -45,6 +58,7 @@
 #define NVS_CC1100_MY_ADDR   "CC_MY_ADDR"	//receiver address
 #define NVS_CC1100_CHANNEL   "CC_CHANNEL"	//channel number
 #define NVS_CC1100_POWER	 "CC_POWER"		//power level
+#define NVS_CC1100_VERSION	 "CC_VERSION"	//power level
 #endif
 
 // ========================
@@ -191,6 +205,7 @@
 int8_t last_rssi_dbm;
 uint8_t last_lqi;
 uint8_t last_crc;
+uint8_t debug_level;
 
 // ==========================
 // ==== Public functions ====

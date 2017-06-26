@@ -2,7 +2,9 @@
 
 ---
 
-**Includes example demo application**
+Based on [CC1101 library by Christian Weithe](https://github.com/SpaceTeddy/CC1101)
+
+**Included example demo application**
 
 ---
 
@@ -16,7 +18,7 @@ Clone the repository
 
 Execute menuconfig and configure your Serial flash config and other settings. Included *sdkconfig.defaults* sets some defaults to be used.
 
-Navigate to **CC1101 configuration** and set GSM and example parameters:
+Navigate to **CC1101 Example configuration** and set CC1101 and example parameters:
 
 `make menuconfig`
 

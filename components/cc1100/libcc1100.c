@@ -27,13 +27,16 @@
 int8_t last_rssi_dbm = 0;
 uint8_t last_lqi = 0;
 uint8_t last_crc = 0;
+uint8_t debug_level = 1;
 
 static spi_lobo_device_handle_t cc_spi = NULL;
 static esp_err_t nvs_ok = 1;
-static uint8_t debug_level = 1;
 static uint8_t adc_channel = 99;
 
 static const char tag[] = "[CC1101]";
+
+static const char *strFreq[4] = {"315", "433", "868", "915" };
+static const char *strMode[6] = {"GFSK 1.2 KBd", "GFSK 38.4 KBd", "GFSK 100 KBd", "MSK 250 KBd", "MSK 500 KBd", "OOK 4.8 KBd" };
 
 //==== Global default settings for 868 MHz ============
 
@@ -716,7 +719,7 @@ static uint8_t cc_begin(uint8_t addr, uint8_t cc1100_freq, uint8_t cc1100_mode, 
 //=============================================
 uint8_t cc_setup(uint8_t *My_addr, uint8_t dbg)
 {
-    debug_level = dbg;
+    debug_level = dbg & 7;
 
     // Initialize NVS
     nvs_ok = nvs_flash_init();
@@ -753,24 +756,45 @@ uint8_t cc_setup(uint8_t *My_addr, uint8_t dbg)
     gpio_config(&io_conf);
 
 
+    uint8_t old_ver, ver = 0;
     uint8_t addr, cc1100_freq, cc1100_mode, cc1100_channel, cc1100_power;
 
 	#if USE_NVS
-    // ** Get settings parameters from NVS, set defaults if not valid parameters found
-    addr = nvs_read_byte(NVS_CC1100_MY_ADDR);
-    if (addr == 0xFF) addr = nvs_write_byte(NVS_CC1100_MY_ADDR, DEFAULT_CC1100_MYADDRESS);
+    // Check if new version is flashed
+    old_ver = nvs_read_byte(NVS_CC1100_VERSION);
+    if ((old_ver == 0xFF) || (old_ver != CC1100_VERSION)) {
+    	ver = nvs_write_byte(NVS_CC1100_VERSION, CC1100_VERSION);
+    }
 
-    cc1100_freq = nvs_read_byte(NVS_CC1100_FREQUENCY);
-    if (cc1100_freq == 0xFF) cc1100_freq = nvs_write_byte(NVS_CC1100_FREQUENCY, DEFAULT_CC1100_FREQUENCY);
+    if (ver == old_ver) {
+        // === Get settings parameters from NVS, set defaults if not valid parameters found ===
+		addr = nvs_read_byte(NVS_CC1100_MY_ADDR);
+		if (addr == 0xFF) addr = nvs_write_byte(NVS_CC1100_MY_ADDR, DEFAULT_CC1100_MYADDRESS);
 
-    cc1100_mode = nvs_read_byte(NVS_CC1100_MODE);
-    if (cc1100_mode == 0xFF) cc1100_mode = nvs_write_byte(NVS_CC1100_MODE, DEFAULT_CC1100_MODE);
+		cc1100_freq = nvs_read_byte(NVS_CC1100_FREQUENCY);
+		if (cc1100_freq == 0xFF) cc1100_freq = nvs_write_byte(NVS_CC1100_FREQUENCY, DEFAULT_CC1100_FREQUENCY);
 
-    cc1100_channel = nvs_read_byte(NVS_CC1100_CHANNEL);
-    if (cc1100_channel == 0xFF) cc1100_channel = nvs_write_byte(NVS_CC1100_CHANNEL, DEFAULT_CC1100_CHANNEL);
+		cc1100_mode = nvs_read_byte(NVS_CC1100_MODE);
+		if (cc1100_mode == 0xFF) cc1100_mode = nvs_write_byte(NVS_CC1100_MODE, DEFAULT_CC1100_MODE);
 
-    cc1100_power = nvs_read_byte(NVS_CC1100_POWER);
-    if (cc1100_power == 0xFF) cc1100_power = nvs_write_byte(NVS_CC1100_POWER, DEFAULT_CC1100_POWER);
+		cc1100_channel = nvs_read_byte(NVS_CC1100_CHANNEL);
+		if (cc1100_channel == 0xFF) cc1100_channel = nvs_write_byte(NVS_CC1100_CHANNEL, DEFAULT_CC1100_CHANNEL);
+
+		cc1100_power = nvs_read_byte(NVS_CC1100_POWER);
+		if (cc1100_power == 0xFF) cc1100_power = nvs_write_byte(NVS_CC1100_POWER, DEFAULT_CC1100_POWER);
+    }
+    else {
+    	// === New version flashed, set defaults ===
+		addr = nvs_write_byte(NVS_CC1100_MY_ADDR, DEFAULT_CC1100_MYADDRESS);
+		cc1100_freq = nvs_write_byte(NVS_CC1100_FREQUENCY, DEFAULT_CC1100_FREQUENCY);
+		cc1100_mode = nvs_write_byte(NVS_CC1100_MODE, DEFAULT_CC1100_MODE);
+		cc1100_channel = nvs_write_byte(NVS_CC1100_CHANNEL, DEFAULT_CC1100_CHANNEL);
+		cc1100_power = nvs_write_byte(NVS_CC1100_POWER, DEFAULT_CC1100_POWER);
+
+		if (debug_level > 0) {
+    		ESP_LOGW(tag, "New default parameters saved to NVS.");
+        }
+    }
 
 	#else
 	addr = DEFAULT_CC1100_MYADDRESS;
@@ -841,18 +865,22 @@ void show_register_settings(void)
 //===========================
 void show_main_settings(void)
 {
+	uint8_t ver = CC1100_VERSION;
 	#if USE_NVS
-	printf("     Mode: %d\r\n", nvs_read_byte(NVS_CC1100_MODE));
-	printf("Frequency: %d\r\n", nvs_read_byte(NVS_CC1100_FREQUENCY));
+	ver = nvs_read_byte(NVS_CC1100_VERSION);
+	printf("  Library: Ver %d.%d\r\n", ver >> 4, ver & 0x0F);
+	printf("     Mode: %d %s\r\n", nvs_read_byte(NVS_CC1100_MODE), strMode[nvs_read_byte(NVS_CC1100_MODE)-1]);
+	printf("Frequency: %d %s MHz\r\n", nvs_read_byte(NVS_CC1100_FREQUENCY), strFreq[nvs_read_byte(NVS_CC1100_FREQUENCY)-1]);
 	printf("  Channel: %d\r\n", nvs_read_byte(NVS_CC1100_CHANNEL));
-	printf("    Power: %d\r\n", nvs_read_byte(NVS_CC1100_POWER));
+	printf("    Power: %d dB\r\n", (int8_t)nvs_read_byte(NVS_CC1100_POWER));
 	printf("  My_Addr: %d\r\n", nvs_read_byte(NVS_CC1100_MY_ADDR));
 
 	#else
-	printf("     Mode: %d\r\n", DEFAULT_CC1100_MODE);
-	printf("Frequency: %d\r\n", DEFAULT_CC1100_FREQUENCY);
+	printf("  Library: Ver %d.%d\r\n", ver >> 4, ver & 0x0F);
+	printf("     Mode: %d %s\r\n", DEFAULT_CC1100_MODE), strMode[DEFAULT_CC1100_MODE-1];
+	printf("Frequency: %d %s MHz\r\n", DEFAULT_CC1100_FREQUENCY), strFreq[DEFAULT_CC1100_FREQUENCY-1];
 	printf("  Channel: %d\r\n", DEFAULT_CC1100_CHANNEL);
-	printf("    Power: %d\r\n", DEFAULT_CC1100_POWER);
+	printf("    Power: %d dB\r\n", DEFAULT_CC1100_POWER);
 	printf("  My_Addr: %d\r\n", DEFAULT_CC1100_MYADDRESS);
 
 	#endif
@@ -1066,7 +1094,7 @@ uint8_t packet_available()
 			while (gpio_get_level(GDO2) == 1) ;
 		}
 
-		if (debug_level > 0) {
+		if (debug_level > 1) {
 			ESP_LOGI(tag, "Packet available");
 		}
 		return 1;

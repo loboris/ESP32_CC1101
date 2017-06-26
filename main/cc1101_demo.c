@@ -44,7 +44,7 @@ static uint8_t My_addr;
  static void IRAM_ATTR GDO2_isr_handler(void* arg)
  {
      uint32_t gpio_num = (uint32_t) arg;
-     /*if (!ignore_GDO2_int)*/ xQueueSendFromISR(gdo2_evt_queue, &gpio_num, NULL);
+     if (!ignore_GDO2_int) xQueueSendFromISR(gdo2_evt_queue, &gpio_num, NULL);
  }
 
 
@@ -160,7 +160,7 @@ static void CC_TX_task(void* arg)
 		Tx_fifo[6] = (uint8_t)(time_stamp);
 		memcpy(Tx_fifo+7, &tmp, sizeof(float));
 
-		Pktlen = 0x07+sizeof(float);						// set packet len to 0x13
+		Pktlen = 0x07+sizeof(float);						// set packet length
 
 		uint8_t res = send_packet(My_addr, Rx_addr, Tx_fifo, Pktlen, 0);	// send package over air. ACK is received via GPIO polling
 
@@ -194,18 +194,25 @@ void app_main()
 
 	vTaskDelay(3000 / portTICK_RATE_MS);
 
-	uint8_t res = cc_setup(&My_addr, 1);
+	uint8_t res = cc_setup(&My_addr, 0);
 	if (res > 0) {
+        //set_output_power_level(-10);
 
-		float tmp = get_temp(2); // Get temperature
-        if (tmp > -999) printf("CC1101 Temperature: %3.1f\r\n", tmp);
-
-        set_output_power_level(-10);
+		float tmp = get_temp(1); // Get temperature
+		if (debug_level == 0) {
+			printf("\r\n");
+			show_main_settings();
+			printf("\r\n");
+			if (tmp > -999) printf("\r\nCC1101 Temperature: %3.1f\r\n", tmp);
+		}
+		else {
+			tmp = get_temp(1); // Get temperature
+		}
 
         // === Start tasks ===
-		xTaskCreatePinnedToCore(CC_RX_task, "CC_RX_task", 2048, NULL, 9, NULL, 1);
+		xTaskCreatePinnedToCore(CC_RX_task, "CC_RX_task", 3*1024, NULL, 9, NULL, 1);
 		vTaskDelay(1000 / portTICK_RATE_MS);
-		xTaskCreatePinnedToCore(CC_TX_task, "CC_TX_task", 2048, NULL, 8, NULL, 1);
+		xTaskCreatePinnedToCore(CC_TX_task, "CC_TX_task", 3*1024, NULL, 8, NULL, 1);
 	}
 	else {
 		ESP_LOGE(tag, "ERROR initializing CC1101.");
