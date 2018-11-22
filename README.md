@@ -14,7 +14,7 @@ Configure your esp32 build environment as for other **esp-idf examples**
 
 Clone the repository
 
-`git clone https://github.com/loboris/ESP32_CC1101_Library.git`
+`git clone https://github.com/loboris/ESP32_CC1101.git`
 
 Execute menuconfig and configure your Serial flash config and other settings. Included *sdkconfig.defaults* sets some defaults to be used.
 
